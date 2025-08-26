@@ -1,0 +1,97 @@
+uses
+  Classes, Graphics, Controls, Dialogs, VsNum, VsEdit, VsDBGrid,
+  uStringCache, uVsLookupVsScripter, VsCombo, VsSpin, VsMask, VsEdRigh,
+  VsPageCo, BtChkBox, DB, ExtCtrls, VsDate, VsDateFT,
+  VsDateTime, VsDiaMes, VsHora, VsLabel, DBClient, VsMes, VsMesAno, VSDBLoco,
+  VsEditAl, VsDBComb, VsDbNum, VsDBEdit, bib, Windows, Messages, StdCtrls, uVsClientDataSet,
+  Buttons, DBCtrls, DBGrids, Grids, SysUtils, uListErro, Forms;
+ 
+procedure ValidaLocalDeEstoque;
+var 
+  idSetor: string;                                                     
+  cSqlSetor: string;
+  cdsSetor: TClientDataSet;
+  listLocaisPA, listLocaisMP: TStringList;              
+  DataSetPA, DataSetMP: TDataSet;             
+begin
+  idSetor := VarToStr(FOrdemProducao.EB_IDSETOR.CodigoValue);                               
+  cdsSetor := TClientDataSet.Create(nil);
+  listLocaisPA := TStringList.Create;                    
+  listLocaisMP := TStringList.Create;
+  try                                                                  
+    cSqlSetor := '#SELECT LOCALPERMITIDOPA, LOCALPERMITIDOMP ' +
+                 'FROM SETORES_U WHERE CODISETOR = :IDSETOR';                              
+ 
+    cdsSetor.Data := dmConexao3C.QueryPegaData(                
+      cSqlSetor,                                                                            
+      '*',                                      
+      ['P', 'IDSETOR', idSetor],                                                
+      [ftString, ftString],                                                        
+      [40, 40]                                                    
+    );                                                                    
+    if cdsSetor.IsEmpty then
+      Exit;        
+ 
+    if Trim(cdsSetor.FieldByName('LOCALPERMITIDOPA').AsString) <> '' then
+    begin
+      listLocaisPA.Delimiter := ',';
+      listLocaisPA.StrictDelimiter := True;
+      listLocaisPA.DelimitedText := Trim(cdsSetor.FieldByName('LOCALPERMITIDOPA').AsString);
+    end;
+ 
+    if Trim(cdsSetor.FieldByName('LOCALPERMITIDOMP').AsString) <> '' then
+    begin
+      listLocaisMP.Delimiter := ',';
+      listLocaisMP.StrictDelimiter := True;
+      listLocaisMP.DelimitedText := Trim(cdsSetor.FieldByName('LOCALPERMITIDOMP').AsString);
+    end;
+ 
+    // Validação PA
+    DataSetPA := FOrdemProducao.cxItemPADB.DataController.DataSource.DataSet;                 
+    if Assigned(DataSetPA) and DataSetPA.Active then                            
+    begin                    
+      DataSetPA.First;                               
+      while not DataSetPA.Eof do                                                         
+      begin                                                                                  
+        if (listLocaisPA.Count > 0) and 
+           (Trim(DataSetPA.FieldByName('LOCAL').AsString) <> '') and                          
+           (listLocaisPA.IndexOf(Trim(DataSetPA.FieldByName('LOCAL').AsString)) = -1) then 
+        begin                                                                              
+          MessageDlg('O local de estoque ' + DataSetPA.FieldByName('LOCAL').AsString + 
+            ' do produto acabado não é permitido para esse setor ' + idSetor + '!', 
+            mtWarning, 4, 0);
+          Abort;                         
+        end;                                                                     
+        DataSetPA.Next;                                            
+      end;
+    end;                                                                   
+ 
+    // Validação MP
+    DataSetMP := FOrdemProducao.cxItemMpT.DataController.DataSource.DataSet;
+    if Assigned(DataSetMP) and DataSetMP.Active then                            
+    begin                              
+      DataSetMP.First;
+      while not DataSetMP.Eof do
+      begin
+        if (listLocaisMP.Count > 0) and
+           (Trim(DataSetMP.FieldByName('LOCAL').AsString) <> '') and
+           (listLocaisMP.IndexOf(Trim(DataSetMP.FieldByName('LOCAL').AsString)) = -1) then
+        begin        
+          MessageDlg('O local de estoque ' + DataSetMP.FieldByName('LOCAL').AsString + 
+            ' da matéria prima não é permitido para esse setor ' + idSetor + '!', 
+            mtWarning, 4, 0);
+          Abort;                                                      
+        end;
+        DataSetMP.Next;   
+      end;
+    end;                        
+  finally
+    cdsSetor.Free;
+    listLocaisPA.Free;                 
+    listLocaisMP.Free;                 
+  end;                                         
+end;
+ 
+begin  
+  ValidaLocalDeEstoque;
+end;
